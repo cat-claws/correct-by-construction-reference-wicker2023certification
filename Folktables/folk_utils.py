@@ -708,6 +708,7 @@ def get_adult_data(sensitive_features, drop_columns=[], test_size=0.2, random_st
     y_train = train_df[[target]]
     X_test = merged.drop(columns=[target]) # test_df.drop(columns=[target])
     y_test = merged[[target]]
+    #  ^ This is incorrect. Train data should not be in test set.
 
     train_ds = TabularDataset(
         X_train, y_train, sensitive_features=sensitive_features, drop_columns=drop_columns)
@@ -771,23 +772,14 @@ def get_credit_data(sensitive_features, drop_columns=[], test_size=0.2, random_s
 
 
 
-def get_crime_data(sensitive_features, drop_columns=[], test_size=0.2, random_state=42):
-    data_df = pd.read_csv(DATA_CRIME_FILENAME, na_values='?').dropna()
-    train_df, test_df = train_test_split(data_df, test_size=test_size, random_state=random_state)
-    target = 'ViolentCrimesPerPop'
+def get_data(data_df, target, sensitive_features, drop_columns=[], test_size=0.2, random_state=42):
 
-    X_train = train_df.drop(columns=[target])
-    y_train = train_df[[target]]
-    X_test = test_df.drop(columns=[target])
-    y_test = test_df[[target]]
+    X = data_df.drop(columns=[target])
+    y = data_df[[target]]
 
-    train_ds = TabularDataset(
-        X_train, y_train, sensitive_features=sensitive_features, drop_columns=drop_columns)
-    test_ds = TabularDataset(
-        X_test, y_test, sensitive_features=sensitive_features, drop_columns=drop_columns)
-
-    return train_ds, test_ds
-
+    return TabularDataset(
+        X, y, sensitive_features=sensitive_features, drop_columns=drop_columns)
+    # We split train/test outside, otherwise the number of categories may differ
 
 def get_german_data(sensitive_features, drop_columns=[], test_size=0.2, random_state=42):
     data_df = pd.read_csv(DATA_GERMAN_FILENAME, na_values='?').dropna()
@@ -809,28 +801,18 @@ def get_german_data(sensitive_features, drop_columns=[], test_size=0.2, random_s
 
 
 
-def get_UCI_dataset(dataset):
-    if(dataset == "Adult"):
-        train, test = get_adult_data(['sex'])
-        print("train: ", train.X_df.to_numpy().shape)
-        print("test:  ", test.X_df.to_numpy().shape)
-        train.X_df["new"] = np.squeeze(train.sensitive_dfs)[:,1]
-        test.X_df["new"] = np.squeeze(test.sensitive_dfs)[:,1]
-    elif(dataset == "German"):
-        train, test = get_german_data(['status_sex'])
-        col = np.squeeze(train.sensitive_dfs)[:,0] + np.squeeze(train.sensitive_dfs)[:,2]
-        train.X_df["new"] = col
-        col2 = np.squeeze(test.sensitive_dfs)[:,0] + np.squeeze(test.sensitive_dfs)[:,2]
-        test.X_df["new"] = col2
-    elif(dataset == "Credit"):
-        train, test = get_credit_data(['x2'])
-        train.X_df["new"] = np.squeeze(train.sensitive_dfs)[:,0]
-        test.X_df["new"] = np.squeeze(test.sensitive_dfs)[:,0]
-        
-    X_train = train.X_df.to_numpy(); y_train = train.y_df.to_numpy()
-    X_val = copy.deepcopy(test.X_df.to_numpy()); y_val = test.y_df.to_numpy()
-    X_test = copy.deepcopy(test.X_df.to_numpy()); y_test = test.y_df.to_numpy()
-    
+def get_UCI_dataset(dataset, data_df, target, sensitive_features):
+    ds = get_data(data_df, target, sensitive_features)
+    ds.X_df = pd.concat([ds.X_df] + ds.sensitive_dfs, axis=1)
+    # adding one-hot values, e.g., column-0 + column-2 can cause mistakes.
+
+    X_df_train, X_df_test, y_df_train, y_df_test = train_test_split(ds.X_df, ds.y_df, test_size=0.2, random_state=42)
+
+    X_train = X_df_train.to_numpy(); y_train = y_df_train.to_numpy()
+    X_val = copy.deepcopy(X_df_test.to_numpy()); y_val = y_df_test.to_numpy()
+    X_test = copy.deepcopy(X_df_test.to_numpy()); y_test = y_df_test.to_numpy()
+    # ^ Although we don't really want this duplicate val/test sets, we leave it as it is.
+
     print("DATA SHAPES: ")
     print(X_train.shape)
     print(X_val.shape)

@@ -11,7 +11,7 @@ class FullyConnected(pl.LightningModule):
     
     def __init__(self, hidden_dim: int = 128, hidden_lay: int = 1, 
                  learning_rate: float = 0.001,  
-                 dataset="Folk", mode="NONE", glob_advs = 0,
+                 dataset="Folk", in_dim=20, num_cls=2, class_weights=torch.Tensor([1.,1.]), mode="NONE", glob_advs = 0,
                  epsilon: float = 0.00, alpha: float = 0.50):
         super().__init__()
         self._current_index = 0
@@ -19,33 +19,10 @@ class FullyConnected(pl.LightningModule):
         HIDDEN_LAY = hidden_lay
         self.activations = [torch.relu]
         self.dataset = dataset
-        self.class_weights = torch.Tensor([1.,1.])
-        if(dataset == "Folk"):
-            self.in_dim = 42
-            self.num_cls = 2
-        elif(dataset == "Employ"):
-            self.in_dim = 41
-            self.num_cls = 2
-        elif(dataset == "Adult"):
-            self.in_dim = 102
-            self.num_cls = 2
-        elif(dataset == "Credit"):
-            self.in_dim = 144 
-            self.num_cls = 2
-        elif(dataset == "German"):
-            self.in_dim = 58 
-            self.num_cls = 2
-        elif(dataset == "Insurance"):
-            self.in_dim = 44
-            self.num_cls = 2
-            self.class_weights = torch.Tensor([1.,3.])
-        elif(dataset == "Mobility"):
-            self.in_dim = 63
-            self.num_cls = 2
-        elif(dataset == "Coverage"):
-            self.in_dim = 44
-            self.num_cls = 2
-            self.class_weights = torch.Tensor([1.,1.2])
+        self.class_weights = class_weights
+    
+        self.in_dim = in_dim
+        self.num_cls = num_cls
         self.gamma = 0.03
         self.glob_advs = glob_advs
         # ------------------------------------------------------------------------------------
